@@ -1,4 +1,5 @@
-# https://github.com/your/repo/blob/main/prototype/prototype_pipeline.py
+# ...existing code...
+# https://github.com/himanshi-sh2312/multi-modal-RecSys/blob/main/prototype/prototype_pipeline.py
 """
 Prototype pipeline:
 - Loads MMSBR-like item embeddings and price stats (toy_data/)
@@ -33,6 +34,7 @@ def load_toy_data(data_dir="toy_data"):
     with open(os.path.join(data_dir, "items.txt")) as f:
         items = [l.strip() for l in f.readlines()]
     return item_emb, price_mean, price_cov, edges, items
+
 
 class SimpleGNN(nn.Module):
     """
@@ -69,6 +71,7 @@ class SimpleGNN(nn.Module):
         out = out / (out.norm(p=2, dim=1, keepdim=True) + 1e-9)
         return out
 
+
 def text_encode(text, sb_model=None, emb_dim=64):
     if sb_model is not None:
         vec = sb_model.encode([text], convert_to_numpy=True)[0]
@@ -81,6 +84,7 @@ def text_encode(text, sb_model=None, emb_dim=64):
         rng = np.random.RandomState(abs(hash(text)) % (2**32))
         return rng.normal(size=(emb_dim,)).astype(np.float32)
 
+
 def compute_session_vector(session_item_ids, item_emb_gnn, text_vec=None, use_text=True):
     # session_item_ids: list of ints (indices)
     if len(session_item_ids) == 0:
@@ -92,15 +96,17 @@ def compute_session_vector(session_item_ids, item_emb_gnn, text_vec=None, use_te
         # simple concat and linear projection
         combined = np.concatenate([sess_vec, text_vec], axis=0)
         # project down to same dim
-        # We'll create a simple random linear map for prototype
         D = item_emb_gnn.shape[1]
-        W = np.ones((combined.shape[0], D), dtype=np.float32) * (1.0 / combined.shape[0])
+        # Use a deterministic projection that does not require training for the prototype
+        rng = np.random.RandomState(0)
+        W = rng.normal(scale=1.0/combined.shape[0], size=(combined.shape[0], D)).astype(np.float32)
         q = combined.dot(W)
         q = q / (np.linalg.norm(q) + 1e-9)
         return q
     else:
         q = sess_vec / (np.linalg.norm(sess_vec) + 1e-9)
         return q
+
 
 def price_modulation(sess_price_mean, item_price_mean):
     # Simple scalar similarity: higher when closer in price
@@ -111,6 +117,7 @@ def price_modulation(sess_price_mean, item_price_mean):
     scale = 50.0
     sim = np.exp(-diff / scale)
     return sim
+
 
 def rerank_and_explain(query_vec, item_emb_gnn, price_mean, session_price_mean, items, topN=10):
     # brute-force dot product retrieval
@@ -135,12 +142,11 @@ def rerank_and_explain(query_vec, item_emb_gnn, price_mean, session_price_mean, 
     # generate templated explanations
     explanations = []
     for r in results:
-        reason = f"Selected because content similarity score {r['interest']:.3f} and price match ({r['price']:.0f}$) score {r['price_score']:.3f).}"
-        # Slightly more readable template:
         reason = (f"Item {r['item_id']} scored well: content similarity {r['interest']:.3f}, "
                   f"price ~${r['price']:.0f} matches session preference (mod {r['price_score']:.3f}).")
         explanations.append(reason)
     return results, explanations
+
 
 def main(args):
     item_emb, price_mean, price_cov, edges, items = load_toy_data(args.data_dir)
@@ -192,6 +198,7 @@ def main(args):
     for i, ex in enumerate(explanations[:args.topk]):
         print(f"{i+1}. {ex}")
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", type=str, default="toy_data")
@@ -202,3 +209,4 @@ if __name__ == "__main__":
     parser.add_argument("--topk", type=int, default=5)
     args = parser.parse_args()
     main(args)
+# ...existing code...
